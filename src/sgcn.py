@@ -244,7 +244,8 @@ class SignedGCNTrainer(object):
         predictions = F.softmax(scores,dim=1)
         predictions = predictions.cpu().detach().numpy()
         test_target = self.y[self.model.test_target_indice]
-        auc, f1 = calculate_auc(test_target,predictions[:,0],self.edges)
+        test_target = test_target.cpu().detach().numpy()
+        auc, f1 = calculate_auc(test_target,predictions[:,1],self.edges)
         self.logs["performance"].append([epoch+1, auc, f1])
 
     def create_and_train_model(self):
