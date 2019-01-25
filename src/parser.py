@@ -19,6 +19,11 @@ def parameter_parser():
                         default = "./input/bitcoin_otc.csv",
 	                help = "Edge list csv.")
 
+    parser.add_argument("--nodes-path",
+                        nargs = "?",
+                        default = "./input/bitcoin_otc.csv",
+	                help = "nodes label csv.")
+
     parser.add_argument("--embedding-path",
                         nargs = "?",
                         default = "./output/embedding/bitcoin_otc_sgcn.csv",
@@ -90,5 +95,5 @@ def parameter_parser():
     parser.set_defaults(spectral_features = True)
 
     parser.set_defaults(layers = [32, 32])
-    
+
     return parser.parse_args()

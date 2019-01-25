@@ -19,7 +19,14 @@ def read_graph(args):
     edges["negative_edges"] = [edge[0:2] for edge in dataset if edge[2] == -1]
     edges["ecount"] = len(dataset)
     edges["ncount"] = len(set([edge[0] for edge in dataset]+[edge[1] for edge in dataset]))
-    return edges
+
+    nodes_df = pd.read_csv(args.nodes_path)
+    nodes_dict = {}
+    nodes_dict['indice'] = nodes_df['node_id'].values
+    nodes_dict['label'] = nodes_df['label'].values
+    nodes_dict['all_ncount'] = len(set([edge[0] for edge in dataset]+[edge[1] for edge in dataset]+\
+                                       [node_id for node_id in nodes_df['node_id'].values]))
+    return edges, nodes_dict
 
 def tab_printer(args):
     """
@@ -28,7 +35,7 @@ def tab_printer(args):
     """
     args = vars(args)
     keys = sorted(args.keys())
-    t = Texttable() 
+    t = Texttable()
     t.add_rows([["Parameter", "Value"]] +  [[k.replace("_"," ").capitalize(),args[k]] for k in keys])
     print(t.draw())
 
@@ -36,13 +43,14 @@ def calculate_auc(targets, predictions, edges):
     """
     Calculate performance measures on test dataset.
     :param targets: Target vector to predict.
-    :param predictions: Predictions vector. 
+    :param predictions: Predictions vector.
     :param edges: Edges dictionary with number of edges etc.
     :return auc: AUC value.
     :return f1: F1-score.
     """
-    neg_ratio = len(edges["negative_edges"])/edges["ecount"]
-    targets = [0 if target == 1 else 1 for target in targets]
+    # neg_ratio = len(edges["negative_edges"])/edges["ecount"]
+    neg_ratio = (targets==0).sum() / len(targets)
+    # targets = [0 if target == 1 else 1 for target in targets]
     auc = roc_auc_score(targets, predictions)
     f1 = f1_score(targets, [1 if p > neg_ratio else 0 for p in  predictions])
     return auc, f1
@@ -52,7 +60,7 @@ def score_printer(logs):
     Print the performance for every 10th epoch on the test dataset.
     :param logs: Log dictionary.
     """
-    t = Texttable() 
+    t = Texttable()
     t.add_rows([per for i, per in enumerate(logs["performance"]) if i % 10 == 0])
     print(t.draw())
 

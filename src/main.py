@@ -8,8 +8,9 @@ def main():
     """
     args = parameter_parser()
     tab_printer(args)
-    edges = read_graph(args)
-    trainer = SignedGCNTrainer(args, edges)
+    # edges = read_graph(args)
+    edges, nodes_dict = read_graph(args) # nodes_dict['indice']:node_id , nodes_dict['label'] : label
+    trainer = SignedGCNTrainer(args, edges, nodes_dict)
     trainer.setup_dataset()
     trainer.create_and_train_model()
     if args.test_size > 0:
