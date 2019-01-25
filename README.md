@@ -63,8 +63,9 @@ Learning an embedding is handled by the `src/main.py` script which provides the 
 ```
   --edge-path                STR    Input graph path.          Default is `input/bitcoin_otc.csv`.
   --features-path            STR    Features path.             Default is `input/bitcoin_otc.csv`.
-  --embedding-path           STR    Embedding path.            Default is `output/embedding/bitcoin_otc_sgcn.csv`.
   --nodes-path               STR    Nodes' label path
+  --embedding-path           STR    Embedding path.            Default is `output/embedding/bitcoin_otc_sgcn.csv`.
+  
   --regression-weights-path  STR    Regression weights path.   Default is `output/weights/bitcoin_otc_sgcn.csv`.
   --log-path                 STR    Log path.                  Default is `logs/bitcoin_otc_logs.json`.  
 ```
