@@ -106,6 +106,7 @@ def create_spectral_features(args, positive_edges, negative_edges, node_count):
     :param node_count: Number of nodes.
     :return X: Node features.
     """
+    print(node_count)
     p_edges = positive_edges + [[edge[1],edge[0]] for edge in positive_edges]
     n_edges = negative_edges + [[edge[1],edge[0]] for edge in negative_edges]
     train_edges = p_edges + n_edges
