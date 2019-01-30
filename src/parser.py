@@ -33,6 +33,11 @@ def parameter_parser():
                         nargs = "?",
                         default = "./output/weights/bitcoin_otc_sgcn.csv",
 	                help = "Regression weights csv.")
+    
+    parser.add_argument("--inductive_model_path",
+                        nargs = "?",
+                        default = None,
+                        help = "Inductive Model path file")
 
     parser.add_argument("--log-path",
                         nargs = "?",

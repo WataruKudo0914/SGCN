@@ -272,6 +272,8 @@ class SignedGCNTrainer(object):
                 if current_auc >= best_auc_score:
                     best_auc_score = current_auc
                     self.save_model()
+                    if self.args.inductive_model_path is not None:
+                        torch.save(self.model.state_dict(), self.args.inductive_model_path)
                 
 
     def save_model(self):
@@ -289,3 +291,39 @@ class SignedGCNTrainer(object):
         regression_header = ["x_" + str(x) for x in range(self.regression_weights.shape[1])]
         self.regression_weights = pd.DataFrame(self.regression_weights, columns = regression_header)
         self.regression_weights.to_csv(self.args.regression_weights_path, index = None)
+    
+class SignedGCNPredictor(object):
+    """
+    Object to classify the users with the input of X and edges in the inductive manner.
+    """
+    def __init__(self, args, inductive_model_path, X, edges,nodes_dict):
+        self.args = args
+        self.inductive_model_path = inductive_model_path
+        self.X = X
+
+        self.edges = edges
+        self.positive_edges = self.edges["positive_edges"]
+        self.negative_edges = self.edges["negative_edges"]
+
+        
+        self.node_indice = nodes_dict['indice']
+        
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        self.positive_edges = torch.from_numpy(np.array(self.positive_edges, dtype=np.int64).T).type(torch.long).to(self.device)
+        self.negative_edges = torch.from_numpy(np.array(self.negative_edges, dtype=np.int64).T).type(torch.long).to(self.device)
+        self.X = torch.from_numpy(self.X).float().to(self.device)
+        
+        self.model = SignedGraphConvolutionalNetwork(self.device, self.args, self.X, self.node_indice).to(self.device)
+        self.model.load_state_dict(torch.load(inductive_model_path))
+
+
+    def predict(self):
+        self.y = np.zeros(self.X.shape[0])
+        self.y = torch.from_numpy(self.y).type(torch.LongTensor).to(self.device)
+        _, self.z = self.model(self.positive_edges, self.negative_edges, self.y)
+        scores = torch.mm(self.z,self.model.regression_weights.to(self.device))
+        predictions = F.softmax(scores,dim=1)
+        predictions = predictions.cpu().detach().numpy()
+        return predictions
+            
