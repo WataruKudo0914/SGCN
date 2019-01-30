@@ -247,6 +247,7 @@ class SignedGCNTrainer(object):
         test_target = test_target.cpu().detach().numpy()
         auc, f1 = calculate_auc(test_target,predictions[:,1],self.edges)
         self.logs["performance"].append([epoch+1, auc, f1])
+        return auc
 
     def create_and_train_model(self):
         """
@@ -257,6 +258,7 @@ class SignedGCNTrainer(object):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.learning_rate, weight_decay=self.args.weight_decay)
         self.model.train()
         self.epochs = trange(self.args.epochs, desc="Loss")
+        best_auc_score = 0.0
         for epoch in self.epochs:
             start_time = time.time()
             self.optimizer.zero_grad()
@@ -266,19 +268,23 @@ class SignedGCNTrainer(object):
             self.optimizer.step()
             self.logs["training_time"].append([epoch+1,time.time()-start_time])
             if self.args.test_size >0:
-                self.score_model(epoch)
+                current_auc = self.score_model(epoch)
+                if current_auc >= best_auc_score:
+                    best_auc_score = current_auc
+                    self.save_model()
+                
 
     def save_model(self):
         """
         Saving the embedding and model weights.
         """
-        print("\nEmbedding is saved.\n")
+        # print("\nEmbedding is saved.\n")
         self.train_z = self.train_z.cpu().detach().numpy()
         embedding_header = ["id"] + ["x_" + str(x) for x in range(self.train_z.shape[1])]
         self.train_z = np.concatenate([np.array(range(self.train_z.shape[0])).reshape(-1,1),self.train_z],axis=1)
         self.train_z = pd.DataFrame(self.train_z, columns = embedding_header)
         self.train_z.to_csv(self.args.embedding_path, index = None)
-        print("\nRegression weights are saved.\n")
+        # print("\nRegression weights are saved.\n")
         self.regression_weights = self.model.regression_weights.cpu().detach().numpy().T
         regression_header = ["x_" + str(x) for x in range(self.regression_weights.shape[1])]
         self.regression_weights = pd.DataFrame(self.regression_weights, columns = regression_header)
