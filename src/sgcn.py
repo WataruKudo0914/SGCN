@@ -8,7 +8,7 @@ from tqdm import trange
 import torch.nn.init as init
 from torch.nn import Parameter
 import torch.nn.functional as F
-from utils import calculate_auc, setup_features
+from utils import calculate_auc, setup_features, sample_edges
 from sklearn.model_selection import train_test_split
 from signedsageconvolution import SignedSAGEConvolutionBase, SignedSAGEConvolutionDeep, ListModule
 
@@ -178,6 +178,7 @@ class SignedGCNTrainer(object):
         """
         self.args = args
         self.edges = edges
+        self.nodes_dict = nodes_dict
         self.node_labels = nodes_dict['label']
         self.node_indice = nodes_dict['indice']
         self.node_count = nodes_dict['all_ncount']
@@ -262,7 +263,13 @@ class SignedGCNTrainer(object):
         for epoch in self.epochs:
             start_time = time.time()
             self.optimizer.zero_grad()
-            loss, _ = self.model(self.positive_edges, self.negative_edges, self.y)
+            if self.args.sample_num is not None: # ノードをサンプリングする時．
+                self.sampled_positive_edges, self.sampled_negative_edges = sample_edges(self.edges,self.args.sample_num,self.nodes_dict)
+                self.sampled_positive_edges = torch.from_numpy(np.array(self.sampled_positive_edges, dtype=np.int64).T).type(torch.long).to(self.device)
+                self.sampled_negative_edges = torch.from_numpy(np.array(self.sampled_negative_edges, dtype=np.int64).T).type(torch.long).to(self.device)
+                loss, _ = self.model(self.sampled_positive_edges, self.sampled_negative_edges, self.y)
+            else:
+                loss, _ = self.model(self.positive_edges, self.negative_edges, self.y)
             loss.backward()
             self.epochs.set_description("SGCN (Loss=%g)" % round(loss.item(),4))
             self.optimizer.step()

@@ -96,6 +96,11 @@ def parameter_parser():
     parser.add_argument("--general-features",
                         dest = "spectral_features",
                         action = "store_false")
+    
+    parser.add_argument("--sample_num",
+                       type=int,
+                       default=None,
+                       help = "sampling size")
 
     parser.set_defaults(spectral_features = True)
 

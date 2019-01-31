@@ -119,3 +119,29 @@ def create_spectral_features(args, positive_edges, negative_edges, node_count):
     svd.fit(signed_A)
     X = svd.components_.T
     return X
+
+# def sample_edges(edges,sample_num,nodes_dict):
+#     G = nx.Graph()
+#     G.add_nodes_from(np.arange(nodes_dict['all_ncount']))
+#     G.add_weighted_edges_from([(i, j, 1) for i,j in edges['positive_edges']])
+#     G.add_weighted_edges_from([(i, j, -1) for i,j in edges['negative_edges']])
+#     first_neighbors = set(np.hstack([list(G.neighbors(i)) for i in nodes_dict['indice']]))
+#     first_second = first_neighbors | set(np.hstack([list(G.neighbors(i)) for i in first_neighbors]))
+#     new_indice = set(np.random.choice(list(first_second - set(nodes_dict['indice'])),50000)) | set(nodes_dict['indice'])
+#     subG = G.subgraph(new_indice)
+#     edges_df = nx.to_pandas_edgelist(subG)
+#     sampled_positive_edges = edges_df.loc[edges_df.weight==1,['source','target']].values
+#     sampled_negative_edges = edges_df.loc[edges_df.weight==-1,['source','target']].values
+#     return sampled_positive_edges,sampled_negative_edges
+
+
+def sample_edges(edges,sample_num,nodes_dict):
+    edges_df = pd.DataFrame(edges['positive_edges'])
+    edges_df = edges_df.append(pd.DataFrame(edges['negative_edges']))
+    edges_df['weight'] = [1]*len(edges['positive_edges']) + [-1]*len(edges['negative_edges'])
+    first_neighbors = np.unique(edges_df.loc[(edges_df[0].isin(nodes_dict['indice'])) | (edges_df[1].isin(nodes_dict['indice']))].values)
+    first_second = edges_df.loc[(edges_df[0].isin(first_neighbors)) | (edges_df[1].isin(first_neighbors))]
+    sampled_positive_edges = first_second.loc[first_second.weight==1,[0,1]].values
+    sampled_negative_edges = first_second.loc[first_second.weight==-1,[0,1]].values
+    return sampled_positive_edges,sampled_negative_edges
+    
