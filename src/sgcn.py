@@ -88,7 +88,12 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         predictions = torch.mm(train_z,self.regression_weights)
         predictions_soft = F.log_softmax(predictions,dim=1)
         train_target = target[self.train_target_indice]
-        loss_term = F.nll_loss(predictions_soft,train_target)
+        if self.args.class_weights:
+            class_counts = np.unique(train_target.cpu().numpy(),return_counts=True)[1]
+            weight = torch.Tensor([class_counts[1],class_counts[0]]).to(self.device)
+        else:
+            weight = None
+        loss_term = F.nll_loss(predictions_soft,train_target,weight=weight)
         return loss_term, predictions_soft
 
 
@@ -212,8 +217,8 @@ class SignedGCNTrainer(object):
         self.negative_edges = torch.from_numpy(np.array(self.negative_edges, dtype=np.int64).T).type(torch.long).to(self.device)
         # self.y = np.array([0 if i< int(self.ecount/2) else 1 for i in range(self.ecount)] +[2]*(self.ecount*2))
         # self.y = torch.from_numpy(self.y).type(torch.LongTensor).to(self.device)
-        # self.y : ノードのラベル
-        self.y = np.array([0 if label==-1 else 1 for label in self.node_labels])
+        # self.y : ノードのラベル Fraudが正例, Benignが負例
+        self.y = np.array([1 if label==-1 else 0 for label in self.node_labels])
         self.y = torch.from_numpy(self.y).type(torch.LongTensor).to(self.device)
 
         self.X = torch.from_numpy(self.X).float().to(self.device)
@@ -274,7 +279,7 @@ class SignedGCNTrainer(object):
             self.epochs.set_description("SGCN (Loss=%g)" % round(loss.item(),4))
             self.optimizer.step()
             self.logs["training_time"].append([epoch+1,time.time()-start_time])
-            if self.args.test_size >0:
+            if (self.args.test_size >0) and (epoch % 10 == 0): #10回に１回評価 
                 current_auc = self.score_model(epoch)
                 if current_auc >= best_auc_score:
                     best_auc_score = current_auc
@@ -292,13 +297,16 @@ class SignedGCNTrainer(object):
         embedding_header = ["id"] + ["x_" + str(x) for x in range(self.train_z.shape[1])]
         self.train_z = np.concatenate([np.array(range(self.train_z.shape[0])).reshape(-1,1),self.train_z],axis=1)
         self.train_z = pd.DataFrame(self.train_z, columns = embedding_header)
-        self.train_z.to_csv(self.args.embedding_path, index = None)
+        # self.train_z.to_csv(self.args.embedding_path, index = None)
+        self.train_z.to_pickle(self.args.embedding_path)
         # print("\nRegression weights are saved.\n")
         self.regression_weights = self.model.regression_weights.cpu().detach().numpy().T
         regression_header = ["x_" + str(x) for x in range(self.regression_weights.shape[1])]
         self.regression_weights = pd.DataFrame(self.regression_weights, columns = regression_header)
-        self.regression_weights.to_csv(self.args.regression_weights_path, index = None)
-    
+        # self.regression_weights.to_csv(self.args.regression_weights_path, index = None)
+        self.regression_weights.to_pickle(self.args.regression_weights_path)
+        
+        
 class SignedGCNPredictor(object):
     """
     Object to classify the users with the input of X and edges in the inductive manner.

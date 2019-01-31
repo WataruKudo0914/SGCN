@@ -143,5 +143,10 @@ def sample_edges(edges,sample_num,nodes_dict):
     first_second = edges_df.loc[(edges_df[0].isin(first_neighbors)) | (edges_df[1].isin(first_neighbors))]
     sampled_positive_edges = first_second.loc[first_second.weight==1,[0,1]].values
     sampled_negative_edges = first_second.loc[first_second.weight==-1,[0,1]].values
+    positive_sample_num = min(sample_num,sampled_positive_edges.shape[0])
+    sampled_positive_edges = sampled_positive_edges[np.random.choice(np.arange(sampled_positive_edges.shape[0]), positive_sample_num,replace=False),:]
+    negative_sample_num = min(sample_num,sampled_negative_edges.shape[0])
+    sampled_negative_edges = sampled_negative_edges[np.random.choice(np.arange(sampled_negative_edges.shape[0]),negative_sample_num,replace=False),:]
+    
     return sampled_positive_edges,sampled_negative_edges
     

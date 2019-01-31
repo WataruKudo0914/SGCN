@@ -101,6 +101,12 @@ def parameter_parser():
                        type=int,
                        default=None,
                        help = "sampling size")
+    parser.add_argument("--class_weight",
+                       type=bool,
+                       default=True,
+                       help = "class weight when calculating loss")
+    
+   
 
     parser.set_defaults(spectral_features = True)
 
