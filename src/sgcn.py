@@ -18,7 +18,7 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
     For details see: Signed Graph Convolutional Network. Tyler Derr, Yao Ma, and Jiliang Tang ICDM, 2018.
     https://arxiv.org/abs/1808.06354
     """
-    def __init__(self, device, args, X, node_indice):
+    def __init__(self, device, args, X, nodes_dict):
         super(SignedGraphConvolutionalNetwork, self).__init__()
         """
         SGCN Initialization.
@@ -30,11 +30,19 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         torch.manual_seed(self.args.seed)
         self.device = device
         self.X = X
+        self.nodes_dict = nodes_dict
         self.setup_layers()
-
-        self.train_target_indice, self.test_target_indice = train_test_split(np.arange(len(node_indice)),test_size=args.test_size,random_state=0)
-        self.train_z_indice = node_indice[self.train_target_indice]
-        self.test_z_indice = node_indice[self.test_target_indice]
+        
+        
+        #  node under sampling
+#         if self.args.node_under_sampling:
+#             less_class_num = np.unique(node_labels,return_counts=True)[1].min()
+#             sampled_indice = np.append(np.random.choice(np.where(node_labels==1)[0],less_class_num,replace=False),np.random.choice(np.where(node_labels==-1)[0],less_class_num,replace=False))
+#             self.train_target_indice, self.test_target_indice = train_test_split(sampled_indice,test_size=args.test_size,random_state=0)
+#         else:
+#             self.train_target_indice, self.test_target_indice = train_test_split(np.arange(len(node_indice)),test_size=args.test_size,random_state=0)
+#         self.train_z_indice = node_indice[self.train_target_indice]
+#         self.test_z_indice = node_indice[self.test_target_indice]
 
 
     def setup_layers(self):
@@ -57,37 +65,12 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         self.regression_weights = Parameter(torch.Tensor(2*self.neurons[-1], 2))
         init.xavier_normal_(self.regression_weights)
 
-    # def calculate_regression_loss(self,z, target):
-    #     """
-    #     Calculating the regression loss for all pairs of nodes.
-    #     :param z: Hidden vertex representations.
-    #     :param target: Target vector.
-    #     :return loss_term: Regression loss.
-    #     :return predictions_soft: Predictions for each vertex pair.
-    #     """
-    #
-    #     print('z:',z.shape)
-    #     pos = torch.cat((self.positive_z_i, self.positive_z_j),1)
-    #     print('pos:',pos.shape)
-    #     neg = torch.cat((self.negative_z_i, self.negative_z_j),1)
-    #     print('neg:',neg.shape)
-    #     surr_neg_i = torch.cat((self.negative_z_i, self.negative_z_k),1)
-    #     surr_neg_j = torch.cat((self.negative_z_j, self.negative_z_k),1)
-    #     surr_pos_i = torch.cat((self.positive_z_i, self.positive_z_k),1)
-    #     surr_pos_j = torch.cat((self.positive_z_j, self.positive_z_k),1)
-    #     features = torch.cat((pos,neg,surr_neg_i,surr_neg_j,surr_pos_i,surr_pos_j))
-    #     print('features:',features.shape)
-    #     predictions = torch.mm(features,self.regression_weights)
-    #     predictions_soft = F.log_softmax(predictions, dim=1)
-    #     loss_term = F.nll_loss(predictions_soft, target)
-    #     print('target:',target.shape)
-    #     return loss_term, predictions_soft
-
-    def calculate_regression_loss(self, z, target):
-        train_z = z[self.train_z_indice]
+    def calculate_regression_loss(self, z, target, train_indice):
+        train_z_indice = self.nodes_dict['indice'][train_indice]
+        train_z = z[train_z_indice]
         predictions = torch.mm(train_z,self.regression_weights)
         predictions_soft = F.log_softmax(predictions,dim=1)
-        train_target = target[self.train_target_indice]
+        train_target = target[train_indice]
         if self.args.class_weights:
             class_counts = np.unique(train_target.cpu().numpy(),return_counts=True)[1]
             weight = torch.Tensor([class_counts[1],class_counts[0]]).to(self.device)
@@ -137,7 +120,7 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         loss_term = term.mean()
         return loss_term
 
-    def calculate_loss_function(self, z, positive_edges, negative_edges, target):
+    def calculate_loss_function(self, z, positive_edges, negative_edges, target, train_indice):
         """
         Calculating the embedding losses, regression loss and weight regularization loss.
         :param z: Node embedding.
@@ -148,11 +131,11 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         """
         loss_term_1 = self.calculate_positive_embedding_loss(z, positive_edges)
         loss_term_2 = self.calculate_negative_embedding_loss(z, negative_edges)
-        regression_loss, self.predictions = self.calculate_regression_loss(z,target)
+        regression_loss, self.predictions = self.calculate_regression_loss(z,target,train_indice)
         loss_term = regression_loss+self.args.lamb*(loss_term_1+loss_term_2)
         return loss_term
 
-    def forward(self, positive_edges, negative_edges, target):
+    def forward(self, positive_edges, negative_edges, target, train_indice):
         """
         Model forward propagation pass. Can fit deep and single layer SGCN models.
         :param positive_edges: Positive edges.
@@ -168,7 +151,7 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
             self.h_pos.append(torch.tanh(self.positive_aggregators[i-1](self.h_pos[i-1],self.h_neg[i-1], positive_edges, negative_edges)))
             self.h_neg.append(torch.tanh(self.negative_aggregators[i-1](self.h_neg[i-1],self.h_pos[i-1], positive_edges, negative_edges)))
         self.z = torch.cat((self.h_pos[-1], self.h_neg[-1]), 1)
-        loss = self.calculate_loss_function(self.z, positive_edges, negative_edges, target)
+        loss = self.calculate_loss_function(self.z, positive_edges, negative_edges, target,train_indice)
         return loss, self.z
 
 class SignedGCNTrainer(object):
@@ -223,33 +206,17 @@ class SignedGCNTrainer(object):
 
         self.X = torch.from_numpy(self.X).float().to(self.device)
 
-    # def score_model(self, epoch):
-    #     """
-    #     Score the model on the test set edges in each epoch.
-    #     :param epoch: Epoch number.
-    #     """
-    #     loss, self.train_z = self.model(self.positive_edges, self.negative_edges, self.y)
-    #     score_positive_edges = torch.from_numpy(np.array(self.test_positive_edges, dtype=np.int64).T).type(torch.long).to(self.device)
-    #     score_negative_edges = torch.from_numpy(np.array(self.test_negative_edges, dtype=np.int64).T).type(torch.long).to(self.device)
-    #     test_positive_z = torch.cat((self.train_z[score_positive_edges[0,:],:], self.train_z[score_positive_edges[1,:],:]),1)
-    #     test_negative_z = torch.cat((self.train_z[score_negative_edges[0,:],:], self.train_z[score_negative_edges[1,:],:]),1)
-    #     scores = torch.mm(torch.cat((test_positive_z, test_negative_z),0), self.model.regression_weights.to(self.device))
-    #     probability_scores = torch.exp(F.softmax(scores, dim=1))
-    #     predictions = probability_scores[:,0]/probability_scores[:,0:2].sum(1)
-    #     predictions = predictions.cpu().detach().numpy()
-    #     targets = [0]*len(self.test_positive_edges) + [1]*len(self.test_negative_edges)
-    #     auc, f1 = calculate_auc(targets, predictions, self.edges)
-    #     self.logs["performance"].append([epoch+1, auc, f1])
 
     def score_model(self, epoch):
-        loss, self.train_z = self.model(self.positive_edges, self.negative_edges, self.y)
-
-        test_hidden = self.train_z[self.model.test_z_indice]
+        loss, self.train_z = self.model(self.positive_edges, self.negative_edges, self.y,self.train_indice)
+        
+        test_z_indice = self.nodes_dict['indice'][self.test_indice]
+        test_hidden = self.train_z[test_z_indice]
         scores = torch.mm(test_hidden,self.model.regression_weights.to(self.device))
         # probability_scores = torch.exp(F.softmax(scores, dim=1))
         predictions = F.softmax(scores,dim=1)
         predictions = predictions.cpu().detach().numpy()
-        test_target = self.y[self.model.test_target_indice]
+        test_target = self.y[self.test_indice]
         test_target = test_target.cpu().detach().numpy()
         auc, f1 = calculate_auc(test_target,predictions[:,1],self.edges)
         self.logs["performance"].append([epoch+1, auc, f1])
@@ -260,7 +227,7 @@ class SignedGCNTrainer(object):
         Model training and scoring.
         """
         print("\nTraining started.\n")
-        self.model = SignedGraphConvolutionalNetwork(self.device, self.args, self.X, self.node_indice).to(self.device)
+        self.model = SignedGraphConvolutionalNetwork(self.device, self.args, self.X, self.nodes_dict).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.learning_rate, weight_decay=self.args.weight_decay)
         self.model.train()
         self.epochs = trange(self.args.epochs, desc="Loss")
@@ -268,13 +235,16 @@ class SignedGCNTrainer(object):
         for epoch in self.epochs:
             start_time = time.time()
             self.optimizer.zero_grad()
-            if self.args.sample_num is not None: # ノードをサンプリングする時．
-                self.sampled_positive_edges, self.sampled_negative_edges = sample_edges(self.edges,self.args.sample_num,self.nodes_dict)
-                self.sampled_positive_edges = torch.from_numpy(np.array(self.sampled_positive_edges, dtype=np.int64).T).type(torch.long).to(self.device)
-                self.sampled_negative_edges = torch.from_numpy(np.array(self.sampled_negative_edges, dtype=np.int64).T).type(torch.long).to(self.device)
-                loss, _ = self.model(self.sampled_positive_edges, self.sampled_negative_edges, self.y)
-            else:
-                loss, _ = self.model(self.positive_edges, self.negative_edges, self.y)
+            all_train_indice, test_indice = train_test_split(np.arange(len(self.node_indice)),test_size=self.args.test_size,stratify=self.node_labels) # 不均衡状態
+            self.train_indice, self.test_indice = self.under_sampling(all_train_indice), test_indice # アンダーサンプリングする
+#             if self.args.sample_num is not None: # ノードをサンプリングする時．
+#                 self.sampled_positive_edges, self.sampled_negative_edges = sample_edges(self.edges,self.args.sample_num,self.nodes_dict)
+#                 self.sampled_positive_edges = torch.from_numpy(np.array(self.sampled_positive_edges, dtype=np.int64).T).type(torch.long).to(self.device)
+#                 self.sampled_negative_edges = torch.from_numpy(np.array(self.sampled_negative_edges, dtype=np.int64).T).type(torch.long).to(self.device)
+#                 loss, _ = self.model(self.sampled_positive_edges, self.sampled_negative_edges, self.y)
+#             else:
+#                 loss, _ = self.model(self.positive_edges, self.negative_edges, self.y)
+            loss, _ = self.model(self.positive_edges, self.negative_edges, self.y, self.train_indice)
             loss.backward()
             self.epochs.set_description("SGCN (Loss=%g)" % round(loss.item(),4))
             self.optimizer.step()
@@ -305,6 +275,16 @@ class SignedGCNTrainer(object):
         self.regression_weights = pd.DataFrame(self.regression_weights, columns = regression_header)
         # self.regression_weights.to_csv(self.args.regression_weights_path, index = None)
         self.regression_weights.to_pickle(self.args.regression_weights_path)
+        
+    def under_sampling(self,all_train_indice):
+        all_train_target = self.node_labels[all_train_indice]
+        if self.args.node_under_sampling:
+            less_cls_num = np.unique(all_train_target,return_counts=True)[1].min()
+            sampled_indice = np.append(np.random.choice(np.where(all_train_target==1)[0],less_cls_num,replace=False),
+                                       np.random.choice(np.where(all_train_target==-1)[0],less_cls_num,replace=False))
+            return sampled_indice
+        else:
+            return all_train_indice
         
         
 class SignedGCNPredictor(object):
