@@ -232,10 +232,10 @@ class SignedGCNTrainer(object):
         self.model.train()
         self.epochs = trange(self.args.epochs, desc="Loss")
         best_auc_score = 0.0
+        all_train_indice, test_indice = train_test_split(np.arange(len(self.node_indice)),test_size=self.args.test_size,stratify=self.node_labels) # 不均衡状態
         for epoch in self.epochs:
             start_time = time.time()
             self.optimizer.zero_grad()
-            all_train_indice, test_indice = train_test_split(np.arange(len(self.node_indice)),test_size=self.args.test_size,stratify=self.node_labels) # 不均衡状態
             self.train_indice, self.test_indice = self.under_sampling(all_train_indice), test_indice # アンダーサンプリングする
 #             if self.args.sample_num is not None: # ノードをサンプリングする時．
 #                 self.sampled_positive_edges, self.sampled_negative_edges = sample_edges(self.edges,self.args.sample_num,self.nodes_dict)
@@ -309,14 +309,14 @@ class SignedGCNPredictor(object):
         self.negative_edges = torch.from_numpy(np.array(self.negative_edges, dtype=np.int64).T).type(torch.long).to(self.device)
         self.X = torch.from_numpy(self.X).float().to(self.device)
         
-        self.model = SignedGraphConvolutionalNetwork(self.device, self.args, self.X, self.node_indice).to(self.device)
+        self.model = SignedGraphConvolutionalNetwork(self.device, self.args, self.X, nodes_dict).to(self.device)
         self.model.load_state_dict(torch.load(inductive_model_path))
 
 
     def predict(self):
         self.y = np.zeros(self.X.shape[0])
         self.y = torch.from_numpy(self.y).type(torch.LongTensor).to(self.device)
-        _, self.z = self.model(self.positive_edges, self.negative_edges, self.y)
+        _, self.z = self.model(self.positive_edges, self.negative_edges, self.y,np.array([1,2,3])) #
         scores = torch.mm(self.z,self.model.regression_weights.to(self.device))
         predictions = F.softmax(scores,dim=1)
         predictions = predictions.cpu().detach().numpy()
