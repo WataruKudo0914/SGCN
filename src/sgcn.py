@@ -151,7 +151,7 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
             self.h_pos.append(torch.tanh(self.positive_aggregators[i-1](self.h_pos[i-1],self.h_neg[i-1], positive_edges, negative_edges)))
             self.h_neg.append(torch.tanh(self.negative_aggregators[i-1](self.h_neg[i-1],self.h_pos[i-1], positive_edges, negative_edges)))
         self.z = torch.cat((self.h_pos[-1], self.h_neg[-1]), 1)
-        loss = self.calculate_loss_function(self.z, positive_edges, negative_edges, target,train_indice)
+        loss = self.calculate_loss_function(self.z, positive_edges, negative_edges, target, train_indice)
         return loss, self.z
 
 class SignedGCNTrainer(object):
