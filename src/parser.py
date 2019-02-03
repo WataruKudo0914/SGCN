@@ -105,6 +105,16 @@ def parameter_parser():
                        type=bool,
                        default=True,
                        help = "class weight when calculating loss")
+    parser.add_argument("--hidden_residual",
+                       type=bool,
+                       default=False,
+                       help = "residual connection of hidden layers")
+    parser.add_argument("--eval_freq",
+                       type=int,
+                       default=10,
+                       help = "eval_freq")
+ 
+
     
    
 

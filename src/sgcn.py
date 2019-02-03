@@ -150,7 +150,10 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         for i in range(1,self.layers):
             self.h_pos.append(torch.tanh(self.positive_aggregators[i-1](self.h_pos[i-1],self.h_neg[i-1], positive_edges, negative_edges)))
             self.h_neg.append(torch.tanh(self.negative_aggregators[i-1](self.h_neg[i-1],self.h_pos[i-1], positive_edges, negative_edges)))
-        self.z = torch.cat((self.h_pos[-1], self.h_neg[-1]), 1)
+        if self.args.hidden_residual is False:
+            self.z = torch.cat((self.h_pos[-1], self.h_neg[-1]), 1)
+        else:
+            self.z = torch.cat((self.h_pos[-1],self.h_neg[-1]), 1) + torch.cat((self.h_pos[0],self.h_neg[0]),1)
         loss = self.calculate_loss_function(self.z, positive_edges, negative_edges, target, train_indice)
         return loss, self.z
 
@@ -249,7 +252,7 @@ class SignedGCNTrainer(object):
             self.epochs.set_description("SGCN (Loss=%g)" % round(loss.item(),4))
             self.optimizer.step()
             self.logs["training_time"].append([epoch+1,time.time()-start_time])
-            if (self.args.test_size >0) and (epoch % 10 == 0): #10回に１回評価 
+            if (self.args.test_size >0) and (epoch % self.args.eval_freq == 0): #eval_freq回に１回評価 
                 current_auc = self.score_model(epoch)
                 if current_auc >= best_auc_score:
                     best_auc_score = current_auc
