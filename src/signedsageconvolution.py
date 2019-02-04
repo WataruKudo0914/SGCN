@@ -63,6 +63,7 @@ class SignedSAGEConvolution(torch.nn.Module):
     def __init__(self,
                  in_channels,
                  out_channels,
+                 layer_serial,
                  norm=True,
                  norm_embed=True,
                  bias=True):
@@ -70,6 +71,7 @@ class SignedSAGEConvolution(torch.nn.Module):
 
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.layer_serial = layer_serial
         self.norm = norm
         self.norm_embed = norm_embed
         self.weight = Parameter(torch.Tensor(self.in_channels, out_channels))
@@ -139,9 +141,15 @@ class SignedSAGEConvolutionDeep(SignedSAGEConvolution):
         edge_index_pos = add_self_loops(edge_index_pos, num_nodes=x_1.size(0))
         edge_index_neg, _ = remove_self_loops(edge_index_neg, None)
         edge_index_neg = add_self_loops(edge_index_neg, num_nodes=x_2.size(0))
-
-        row_pos, col_pos = edge_index_pos
-        row_neg, col_neg = edge_index_neg
+        
+        inverse = True if self.layer_serial % 2 != 0 else False # バランスセオリーの拡張. 奇数レイヤーはin_edgeによってaggregation
+        
+        if inverse is False:
+            row_pos, col_pos = edge_index_pos
+            row_neg, col_neg = edge_index_neg
+        else:
+            col_pos, row_pos = edge_index_pos
+            col_neg, row_neg = edge_index_neg
         
         if self.norm:
             out_1 = scatter_mean(x_1[col_pos], row_pos, dim=0, dim_size=x_1.size(0))

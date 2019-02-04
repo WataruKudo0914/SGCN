@@ -52,8 +52,8 @@ def calculate_auc(targets, predictions, edges):
     neg_ratio = (targets==0).sum() / len(targets)
     # targets = [0 if target == 1 else 1 for target in targets]
     auc = roc_auc_score(targets, predictions)
-    f1 = f1_score(targets, [1 if p > neg_ratio else 0 for p in  predictions])
-    return auc, f1
+    # f1 = f1_score(targets, [1 if p > neg_ratio else 0 for p in  predictions])
+    return auc, 0
 
 def score_printer(logs):
     """

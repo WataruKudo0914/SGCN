@@ -52,13 +52,13 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         self.nodes = range(self.X.shape[0])
         self.neurons = self.args.layers
         self.layers = len(self.neurons)
-        self.positive_base_aggregator = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0]).to(self.device)
-        self.negative_base_aggregator = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0]).to(self.device)
+        self.positive_base_aggregator = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], 0).to(self.device)
+        self.negative_base_aggregator = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], 0).to(self.device)
         self.positive_aggregators = []
         self.negative_aggregators = []
         for i in range(1,self.layers):
-            self.positive_aggregators.append(SignedSAGEConvolutionDeep(3*self.neurons[i-1], self.neurons[i]).to(self.device))
-            self.negative_aggregators.append(SignedSAGEConvolutionDeep(3*self.neurons[i-1], self.neurons[i]).to(self.device))
+            self.positive_aggregators.append(SignedSAGEConvolutionDeep(3*self.neurons[i-1], self.neurons[i], i).to(self.device))
+            self.negative_aggregators.append(SignedSAGEConvolutionDeep(3*self.neurons[i-1], self.neurons[i], i).to(self.device))
         self.positive_aggregators = ListModule(*self.positive_aggregators)
         self.negative_aggregators = ListModule(*self.negative_aggregators)
         # self.regression_weights = Parameter(torch.Tensor(4*self.neurons[-1], 3))
