@@ -129,8 +129,8 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         :param target: Target vector.
         :return loss: Value of loss.
         """
-        loss_term_1 = self.calculate_positive_embedding_loss(z, positive_edges)
-        loss_term_2 = self.calculate_negative_embedding_loss(z, negative_edges)
+        loss_term_1 = 0 # self.calculate_positive_embedding_loss(z, positive_edges)
+        loss_term_2 = 0 # self.calculate_negative_embedding_loss(z, negative_edges)
         regression_loss, self.predictions = self.calculate_regression_loss(z,target,train_indice)
         loss_term = regression_loss+self.args.lamb*(loss_term_1+loss_term_2)
         return loss_term
