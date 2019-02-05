@@ -243,7 +243,9 @@ class SignedGCNTrainer(object):
         # self.y : ノードのラベル Fraudが正例, Benignが負例
         self.y = np.array([1 if label==-1 else 0 for label in self.node_labels])
         self.y = torch.from_numpy(self.y).type(torch.LongTensor).to(self.device)
-
+        if self.args.subgraph_training ==True:
+            self.X = self.X[self.nodes_dict['subgraph_map_from_original_feature']]
+        
         self.X = torch.from_numpy(self.X).float().to(self.device)
 
 

@@ -113,7 +113,12 @@ def parameter_parser():
                        type=int,
                        default=10,
                        help = "eval_freq")
- 
+    
+    parser.add_argument("--subgraph_training",
+                       type=bool,
+                       default=False,
+                       help = "subgraph training")
+
 
     
    
