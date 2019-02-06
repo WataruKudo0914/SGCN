@@ -3,3 +3,5 @@ input/*
 *.pyc
 .python-version
 raw_data/*
+tmp/*
+
