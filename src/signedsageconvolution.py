@@ -109,7 +109,7 @@ class SignedSAGEConvolutionBase(SignedSAGEConvolution):
         """
         edge_index, _ = remove_self_loops(edge_index, None)
         edge_index = add_self_loops(edge_index, num_nodes=x.size(0))
-        if self.out_or_in == 'out': # aggregation by out edge
+        if self.out_or_in[0] == 'out': # aggregation by out edge
             row, col = edge_index
         else:
             col, row = edge_index
@@ -132,7 +132,7 @@ class SignedSAGEConvolutionDeep(SignedSAGEConvolution):
     """
     Deep Signed SAGE class for multi-layer models.
     """
-    def forward(self, x_1_out, x_1_in , x_2_out, x_2_in, edge_index_pos, edge_index_neg):
+    def forward(self, x_1, x_2, edge_index_pos, edge_index_neg):
         """
         Forward propagation pass with features an indices.
         :param x_1: Features for left hand side vertices.
@@ -141,11 +141,11 @@ class SignedSAGEConvolutionDeep(SignedSAGEConvolution):
         :param edge_index_neg: Negative indices.
         """
         edge_index_pos, _ = remove_self_loops(edge_index_pos, None)
-        edge_index_pos = add_self_loops(edge_index_pos, num_nodes=x_1_out.size(0))
+        edge_index_pos = add_self_loops(edge_index_pos, num_nodes=x_1.size(0))
         edge_index_neg, _ = remove_self_loops(edge_index_neg, None)
-        edge_index_neg = add_self_loops(edge_index_neg, num_nodes=x_2_out.size(0))
+        edge_index_neg = add_self_loops(edge_index_neg, num_nodes=x_2.size(0))
                 
-        if self.out_or_in == 'out':
+        if self.out_or_in[0] == 'out':
             row_pos, col_pos = edge_index_pos
             row_neg, col_neg = edge_index_neg
         else:
@@ -153,17 +153,14 @@ class SignedSAGEConvolutionDeep(SignedSAGEConvolution):
             col_neg, row_neg = edge_index_neg
         
         if self.norm:
-            out_1_out = scatter_mean(x_1_out[col_pos], row_pos, dim=0, dim_size=x_1_out.size(0))
-            out_1_in = scatter_mean(x_1_in[col_pos], row_pos, dim=0, dim_size=x_1_in.size(0))
-            out_2_out = scatter_mean(x_2_out[col_neg], row_neg, dim=0, dim_size=x_2_out.size(0))
-            out_2_in = scatter_mean(x_2_in[col_neg], row_neg, dim=0, dim_size=x_2_in.size(0))
+            out_1 = scatter_mean(x_1[col_pos], row_pos, dim=0, dim_size=x_1.size(0))
+            out_2 = scatter_mean(x_2[col_neg], row_neg, dim=0, dim_size=x_2.size(0))
         else:
-            out_1_out = scatter_add(x_1_out[col_pos], row_pos, dim=0, dim_size=x_1_out.size(0))
-            out_1_in = scatter_add(x_1_in[col_pos], row_pos, dim=0, dim_size=x_1_in.size(0))
-            out_2_out = scatter_add(x_2_out[col_neg], row_neg, dim=0, dim_size=x_2_out.size(0))
-            out_2_in = scatter_add(x_2_in[col_neg], row_neg, dim=0, dim_size=x_2_in.size(0))
+            out_1 = scatter_add(x_1[col_pos], row_pos, dim=0, dim_size=x_1.size(0))
+            out_2 = scatter_add(x_2[col_neg], row_neg, dim=0, dim_size=x_2.size(0))
             
-        out = torch.cat((out_1_out,out_1_in, out_2_out,out_2_in, x_1_out, x_1_in),1)
+        out = torch.cat((out_1, out_2, x_1,x_2),1)
+        # out = torch.cat((out_1, out_2),1)
         out = torch.matmul(out, self.weight)
         if self.bias is not None:
             out = out + self.bias

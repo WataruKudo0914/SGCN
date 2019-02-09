@@ -52,29 +52,49 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         self.nodes = range(self.X.shape[0])
         self.neurons = self.args.layers
         self.layers = len(self.neurons)
-        self.positive_base_aggregator_out = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], 'out').to(self.device)
-        self.negative_base_aggregator_out = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], 'out').to(self.device)
-        self.positive_base_aggregator_in = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], 'in').to(self.device)
-        self.negative_base_aggregator_in = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], 'in').to(self.device)
+        self.positive_base_aggregator_out = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], ['out']).to(self.device)
+        self.negative_base_aggregator_out = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], ['out']).to(self.device)
+        self.positive_base_aggregator_in = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], ['in']).to(self.device)
+        self.negative_base_aggregator_in = SignedSAGEConvolutionBase(self.X.shape[1]*2, self.neurons[0], ['in']).to(self.device)
+        
+        self.outoutFriends_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0], self.neurons[1],['out','out']).to(self.device)
+        self.outinFriends_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0], self.neurons[1],['out','in']).to(self.device)
+        self.inoutFriends_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0], self.neurons[1],['in','out']).to(self.device)
+        self.ininFriends_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0],self.neurons[1],['in','in']).to(self.device)
+        self.outoutEnemies_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0],self.neurons[1],['out','out']).to(self.device)
+        self.outinEnemies_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0],self.neurons[1],['out','in']).to(self.device)
+        self.inoutEnemies_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0],self.neurons[1],['in','out']).to(self.device)
+        self.ininEnemies_aggregator = SignedSAGEConvolutionDeep(4*self.neurons[0],self.neurons[1],['in','in']).to(self.device)
+        
+#        self.positive_aggregators_out = []
+#         self.negative_aggregators_out = []
+#         self.positive_aggregators_in = []
+#         self.negative_aggregators_in = []
+    
+#         for i in range(1,self.layers):
+#             self.positive_aggregators_out.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'out').to(self.device))
+#             self.negative_aggregators_out.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'out').to(self.device))
+#             self.positive_aggregators_in.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'in').to(self.device))
+#             self.negative_aggregators_in.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'in').to(self.device))
+        # 同じレイヤーを積み重ねてみる
+#         positive_out = SignedSAGEConvolutionDeep(6*self.neurons[0], self.neurons[0], 'out').to(self.device)
+#         negative_out = SignedSAGEConvolutionDeep(6*self.neurons[0], self.neurons[0], 'out').to(self.device)
+#         positive_in = SignedSAGEConvolutionDeep(6*self.neurons[0], self.neurons[0], 'in').to(self.device)
+#         negative_in= SignedSAGEConvolutionDeep(6*self.neurons[0], self.neurons[0], 'in').to(self.device)
+#         for i in range(1,self.layers):
+#             self.positive_aggregators_out.append(positive_out)
+#             self.negative_aggregators_out.append(negative_out)
+#             self.positive_aggregators_in.append(positive_in)
+#             self.negative_aggregators_in.append(negative_in)
 
-        self.positive_aggregators_out = []
-        self.negative_aggregators_out = []
-        self.positive_aggregators_in = []
-        self.negative_aggregators_in = []
-
-        for i in range(1,self.layers):
-            self.positive_aggregators_out.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'out').to(self.device))
-            self.negative_aggregators_out.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'out').to(self.device))
-            self.positive_aggregators_in.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'in').to(self.device))
-            self.negative_aggregators_in.append(SignedSAGEConvolutionDeep(6*self.neurons[i-1], self.neurons[i], 'in').to(self.device))
-
-        self.positive_aggregators_out = ListModule(*self.positive_aggregators_out)
-        self.negative_aggregators_out = ListModule(*self.negative_aggregators_out)
-        self.positive_aggregators_in = ListModule(*self.positive_aggregators_in)
-        self.negative_aggregators_in = ListModule(*self.negative_aggregators_in)
+        
+#         self.positive_aggregators_out = ListModule(*self.positive_aggregators_out)
+#         self.negative_aggregators_out = ListModule(*self.negative_aggregators_out)
+#         self.positive_aggregators_in = ListModule(*self.positive_aggregators_in)
+#         self.negative_aggregators_in = ListModule(*self.negative_aggregators_in)
 
         # self.regression_weights = Parameter(torch.Tensor(4*self.neurons[-1], 3))
-        self.regression_weights = Parameter(torch.Tensor(4*self.neurons[-1], 2))
+        self.regression_weights = Parameter(torch.Tensor(8*self.neurons[-1], 2))
         init.xavier_normal_(self.regression_weights)
 
     def calculate_regression_loss(self, z, target, train_indice):
@@ -156,41 +176,61 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         :return loss: Loss value.
         :return self.z: Hidden vertex representations.
         """
-        self.h_pos_out, self.h_neg_out = [],[]
-        self.h_pos_in, self.h_neg_in = [],[]
-        self.h_pos_out.append(torch.tanh(self.positive_base_aggregator_out(self.X, positive_edges)))
-        self.h_pos_in.append(torch.tanh(self.positive_base_aggregator_in(self.X, positive_edges)))
-        self.h_neg_out.append(torch.tanh(self.negative_base_aggregator_out(self.X, negative_edges)))
-        self.h_neg_in.append(torch.tanh(self.negative_base_aggregator_in(self.X, negative_edges)))
+#         self.h_pos_out, self.h_neg_out = [],[]
+#         self.h_pos_in, self.h_neg_in = [],[]
+#         self.h_pos_out.append(torch.tanh(self.positive_base_aggregator_out(self.X, positive_edges)))
+#         self.h_pos_in.append(torch.tanh(self.positive_base_aggregator_in(self.X, positive_edges)))
+#         self.h_neg_out.append(torch.tanh(self.negative_base_aggregator_out(self.X, negative_edges)))
+#         self.h_neg_in.append(torch.tanh(self.negative_base_aggregator_in(self.X, negative_edges)))
+        
+        self.h_pos_out = torch.tanh(self.positive_base_aggregator_out(self.X, positive_edges))
+        self.h_pos_in = torch.tanh(self.positive_base_aggregator_in(self.X, positive_edges))
+        self.h_neg_out = torch.tanh(self.negative_base_aggregator_out(self.X, negative_edges))
+        self.h_neg_in = torch.tanh(self.negative_base_aggregator_in(self.X, negative_edges))
+        
+        # aggregatorの引数 : positive_edgesで集約するベクトル， negative_edgesで集約するベクトル， positive_edges, negative_edges
+        self.h_outoutFriends = torch.tanh(self.outoutFriends_aggregator(self.h_pos_out,self.h_neg_out,positive_edges,negative_edges))
+        self.h_outinFriends = torch.tanh(self.outinFriends_aggregator(self.h_pos_in,self.h_neg_in,positive_edges,negative_edges))
+        self.h_inoutFriends = torch.tanh(self.inoutFriends_aggregator(self.h_pos_out,self.h_neg_out,positive_edges,negative_edges))
+        self.h_ininFriends = torch.tanh(self.ininFriends_aggregator(self.h_pos_in,self.h_neg_in,positive_edges, negative_edges))
+        self.h_outoutEnemies = torch.tanh(self.outoutEnemies_aggregator(self.h_neg_out,self.h_pos_out,positive_edges,negative_edges))
+        self.h_outinEnemies = torch.tanh(self.outinEnemies_aggregator(self.h_neg_in,self.h_pos_in,positive_edges,negative_edges))
+        self.h_inoutEnemies = torch.tanh(self.inoutEnemies_aggregator(self.h_neg_out, self.h_pos_out, positive_edges, negative_edges))
+        self.h_ininEnemies = torch.tanh(self.ininEnemies_aggregator(self.h_neg_in, self.h_pos_in, positive_edges, negative_edges))
+        
+        
+        
+        
+#         for i in range(1,self.layers):
+#             self.h_pos_out.append(torch.tanh(self.positive_aggregators_out[i-1](self.h_pos_out[i-1],
+#                                                                                                     self.h_pos_in[i-1],
+#                                                                                                     self.h_neg_out[i-1], 
+#                                                                                                     self.h_neg_in[i-1],
+#                                                                                                     positive_edges, negative_edges)))
+#             self.h_pos_in.append(torch.tanh(self.positive_aggregators_in[i-1](self.h_pos_out[i-1],
+#                                                                                                 self.h_pos_in[i-1],
+#                                                                                                 self.h_neg_out[i-1], 
+#                                                                                                 self.h_neg_in[i-1], 
+#                                                                                                 positive_edges, negative_edges)))
+#             self.h_neg_out.append(torch.tanh(self.negative_aggregators_out[i-1](self.h_neg_out[i-1],
+#                                                                                                      self.h_neg_in[i-1],
+#                                                                                                      self.h_pos_out[i-1],
+#                                                                                                      self.h_pos_in[i-1],
+#                                                                                                      positive_edges, negative_edges)))
+#             self.h_neg_in.append(torch.tanh(self.negative_aggregators_in[i-1](self.h_neg_out[i-1],
+#                                                                                                  self.h_neg_in[i-1],
+#                                                                                                  self.h_pos_out[i-1], 
+#                                                                                                  self.h_pos_in[i-1], 
+#                                                                                                  positive_edges, 
+#                                                                                                  negative_edges)))
 
-        for i in range(1,self.layers):
-            self.h_pos_out.append(torch.tanh(self.positive_aggregators_out[i-1](self.h_pos_out[i-1],
-                                                                                                    self.h_pos_in[i-1],
-                                                                                                    self.h_neg_out[i-1], 
-                                                                                                    self.h_neg_in[i-1],
-                                                                                                    positive_edges, negative_edges)))
-            self.h_pos_in.append(torch.tanh(self.positive_aggregators_in[i-1](self.h_pos_out[i-1],
-                                                                                                self.h_pos_in[i-1],
-                                                                                                self.h_neg_out[i-1], 
-                                                                                                self.h_neg_in[i-1], 
-                                                                                                positive_edges, negative_edges)))
-            self.h_neg_out.append(torch.tanh(self.negative_aggregators_out[i-1](self.h_neg_out[i-1],
-                                                                                                     self.h_neg_in[i-1],
-                                                                                                     self.h_pos_out[i-1],
-                                                                                                     self.h_pos_in[i-1],
-                                                                                                     positive_edges, negative_edges)))
-            self.h_neg_in.append(torch.tanh(self.negative_aggregators_in[i-1](self.h_neg_out[i-1],
-                                                                                                 self.h_neg_in[i-1],
-                                                                                                 self.h_pos_out[i-1], 
-                                                                                                 self.h_pos_in[i-1], 
-                                                                                                 positive_edges, 
-                                                                                                 negative_edges)))
-
-        if self.args.hidden_residual is False:
-            self.z = torch.cat((self.h_pos_out[-1], self.h_pos_in[-1], self.h_neg_out[-1], self.h_neg_out[-1]), 1)
-        else:
-            self.z = torch.cat((self.h_pos_out[-1], self.h_pos_in[-1], self.h_neg_out[-1], self.h_neg_out[-1]), 1) + \
-                      torch.cat((self.h_pos_out[0], self.h_pos_in[0], self.h_neg_out[0], self.h_neg_out[0]),1)
+#         if self.args.hidden_residual is False:
+#             self.z = torch.cat((self.h_pos_out[-1], self.h_pos_in[-1], self.h_neg_out[-1], self.h_neg_out[-1]), 1)
+#         else:
+#             self.z = torch.cat((self.h_pos_out[-1], self.h_pos_in[-1], self.h_neg_out[-1], self.h_neg_out[-1]), 1) + \
+#                       torch.cat((self.h_pos_out[0], self.h_pos_in[0], self.h_neg_out[0], self.h_neg_out[0]),1)
+        self.z = torch.cat((self.h_outoutFriends, self.h_outinFriends, self.h_inoutFriends, self.h_ininFriends,
+                               self.h_outoutEnemies, self.h_outinEnemies, self.h_inoutEnemies, self.h_ininEnemies),1)
         loss = self.calculate_loss_function(self.z, positive_edges, negative_edges, target, train_indice)
         return loss, self.z
 
