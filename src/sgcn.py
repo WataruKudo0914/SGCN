@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from tqdm import trange
 import torch.nn.init as init
-from torch.nn import Parameter
+from torch.nn import Parameter, L1Loss
 import torch.nn.functional as F
 from utils import calculate_auc, setup_features, sample_edges
 from sklearn.model_selection import train_test_split
@@ -164,7 +164,12 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         loss_term_1 = 0 #self.calculate_positive_embedding_loss(z, positive_edges)
         loss_term_2 = 0 #self.calculate_negative_embedding_loss(z, negative_edges)
         regression_loss, self.predictions = self.calculate_regression_loss(z,target,train_indice)
-        loss_term = regression_loss+self.args.lamb*(loss_term_1+loss_term_2)
+        
+        l1_loss = 0
+        for param in self.regression_weights:
+            l1_loss += torch.norm(param,1)
+        
+        loss_term = regression_loss+self.args.lamb*(loss_term_1+loss_term_2) + self.args.l1_lambda*l1_loss
         return loss_term
 
     def forward(self, positive_edges, negative_edges, target, train_indice):
@@ -315,6 +320,7 @@ class SignedGCNTrainer(object):
         self.epochs = trange(self.args.epochs, desc="Loss")
         best_auc_score = 0.0
         all_train_indice, test_indice = train_test_split(np.arange(len(self.node_indice)),test_size=self.args.test_size,stratify=self.node_labels) # 不均衡状態
+        self.used_train_indice, self.used_test_indice = all_train_indice, test_indice
         for epoch in self.epochs:
             start_time = time.time()
             self.optimizer.zero_grad()

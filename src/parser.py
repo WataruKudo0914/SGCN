@@ -119,6 +119,10 @@ def parameter_parser():
                        default=False,
                        help = "subgraph training")
 
+    parser.add_argument("--l1_lambda",
+                        type = float,
+                        default = 0.0,
+	                help = "Learning rate. Default is 10^-5.")
 
     
    
