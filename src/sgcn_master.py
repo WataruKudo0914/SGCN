@@ -62,23 +62,25 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         self.positive_aggregators = ListModule(*self.positive_aggregators)
         self.negative_aggregators = ListModule(*self.negative_aggregators)
         # self.regression_weights = Parameter(torch.Tensor(4*self.neurons[-1], 3))
-        self.regression_weights = Parameter(torch.Tensor(2*self.neurons[-1], 2))
+        self.regression_weights = Parameter(torch.Tensor(2*self.neurons[-1], 1))
         init.xavier_normal_(self.regression_weights)
 
     def calculate_regression_loss(self, z, target, train_indice):
         train_z_indice = self.nodes_dict['indice'][train_indice]
         train_z = z[train_z_indice]
         predictions = torch.mm(train_z,self.regression_weights)
-        predictions_soft = F.log_softmax(predictions,dim=1)
+        # predictions_soft = F.log_softmax(predictions,dim=1)
+        predictions_sigmoid = torch.sigmoid(predictions)
         train_target = target[train_indice]
         if self.args.class_weights:
             class_counts = np.unique(train_target.cpu().numpy(),return_counts=True)[1]
             weight = torch.Tensor([class_counts[1],class_counts[0]]).to(self.device)
         else:
             weight = None
-        loss_term = F.nll_loss(predictions_soft,train_target,weight=weight)
-        return loss_term, predictions_soft
-
+        # loss_term = F.nll_loss(predictions_soft,train_target,weight=weight)
+        train_target = train_target.float()
+        loss_term = F.binary_cross_entropy(predictions_sigmoid.squeeze(),train_target,weight=weight)
+        return loss_term, predictions_sigmoid
 
 
 
@@ -132,7 +134,12 @@ class SignedGraphConvolutionalNetwork(torch.nn.Module):
         loss_term_1 = 0 #self.calculate_positive_embedding_loss(z, positive_edges)
         loss_term_2 = 0 #self.calculate_negative_embedding_loss(z, negative_edges)
         regression_loss, self.predictions = self.calculate_regression_loss(z,target,train_indice)
-        loss_term = regression_loss+self.args.lamb*(loss_term_1+loss_term_2)
+        l1_loss = 0
+        for param in self.regression_weights:
+            l1_loss += torch.norm(param,1)
+        l1_loss = l1_loss / self.regression_weights.shape[0]
+        
+        loss_term = regression_loss+self.args.lamb*(loss_term_1+loss_term_2) + self.args.l1_lambda*l1_loss
         return loss_term
 
     def forward(self, positive_edges, negative_edges, target, train_indice):
@@ -217,11 +224,12 @@ class SignedGCNTrainer(object):
         test_hidden = self.train_z[test_z_indice]
         scores = torch.mm(test_hidden,self.model.regression_weights.to(self.device))
         # probability_scores = torch.exp(F.softmax(scores, dim=1))
-        predictions = F.softmax(scores,dim=1)
+        # predictions = F.softmax(scores,dim=1)
+        predictions = torch.sigmoid(scores)
         predictions = predictions.cpu().detach().numpy()
         test_target = self.y[self.test_indice]
         test_target = test_target.cpu().detach().numpy()
-        auc, f1 = calculate_auc(test_target,predictions[:,1],self.edges)
+        auc, f1 = calculate_auc(test_target,predictions,self.edges)
         self.logs["performance"].append([epoch+1, auc, f1])
         return auc
 
@@ -321,7 +329,7 @@ class SignedGCNPredictor(object):
         self.y = torch.from_numpy(self.y).type(torch.LongTensor).to(self.device)
         _, self.z = self.model(self.positive_edges, self.negative_edges, self.y,np.array([1,2,3])) #
         scores = torch.mm(self.z,self.model.regression_weights.to(self.device))
-        predictions = F.softmax(scores,dim=1)
+        predictions = torch.sigmoid(scores)
         predictions = predictions.cpu().detach().numpy()
         return predictions
-            
+           
